@@ -1,24 +1,34 @@
 const fs = require('fs')
 const express = require('express')
 const app = express()
+const morgan = require('morgan')
+
+// 1) Midlewares
 app.use(express.json())
-const port = 3000
+app.use(morgan('dev'))
+
+app.use((req, res, next) => {
+  req.reqTime = new Date().toISOString()
+  next()
+})
 
 const tours = JSON.parse(
   fs.readFileSync(`${__dirname}/dev-data/data/tours-simple.json`, 'utf-8')
 )
 
-app.get('/api/v1/tours', (req, res) => {
+// 2) Routes Handlers
+const getAllTours = (req, res) => {
   res.status(200).json({
     status: 'success',
     results: tours.length,
+    reqTime: req.reqTime,
     data: {
       tours,
     },
   })
-})
+}
 
-app.get(`/api/v1/tours/:id`, (req, res) => {
+const getTour = (req, res) => {
   const id = +req.params.id
   const tour = tours.find((el) => el.id === id)
 
@@ -35,9 +45,9 @@ app.get(`/api/v1/tours/:id`, (req, res) => {
       tour,
     },
   })
-})
+}
 
-app.post('/api/v1/tours', (req, res) => {
+const postTour = (req, res) => {
   const id = tours[tours.length - 1].id + 1
   const newTour = { id, ...req.body }
   tours.push(newTour)
@@ -50,9 +60,9 @@ app.post('/api/v1/tours', (req, res) => {
     }
   )
   res.send('Done')
-})
+}
 
-app.patch('/api/v1/tours/:id', (req, res) => {
+const updateTour = (req, res) => {
   if (+req.params.id > tours.length) {
     return res.status(404).json({
       status: 'fail',
@@ -66,9 +76,9 @@ app.patch('/api/v1/tours/:id', (req, res) => {
       tour: 'Tour was updated!',
     },
   })
-})
+}
 
-app.delete('/api/v1/tours/:id', (req, res) => {
+const deleteTour = (req, res) => {
   if (+req.params.id > tours.length) {
     res.status(404).json({
       status: 'fail',
@@ -80,8 +90,22 @@ app.delete('/api/v1/tours/:id', (req, res) => {
     status: 'success',
     data: null,
   })
-})
+}
+//  3) Routes
+///// SEPARETE
+// app.get('/api/v1/tours', getAllTours)
+// app.post('/api/v1/tours', postTour)
 
+// app.get(`/api/v1/tours/:id`, getTour)
+// app.patch('/api/v1/tours/:id', updateTour)
+// app.delete('/api/v1/tours/:id', deleteTour)
+
+///// CHAINING
+app.route('/api/v1/tours').get(getAllTours).post(postTour)
+app.route('/api/v1/tours/:id').get(getTour).patch(updateTour).delete(deleteTour)
+
+// 4) Turn on the server
+const port = 3000
 app.listen(port, () => {
   console.log(`Start working on a port ${port}`)
 })
